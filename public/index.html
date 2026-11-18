@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure School Mark Entry & File Vault</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; color: #2d3748; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 35px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h1 { color: #1a365d; text-align: center; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #718096; margin-bottom: 25px; font-size: 13px; }
+        
+        .auth-card, .portal-card { background: #f8fafc; padding: 25px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
+        .hidden { display: none !important; }
+        .toggle-link { text-align: center; margin-top: 15px; font-size: 13px; color: #3182ce; cursor: pointer; font-weight: 600; }
+        .toggle-link:hover { text-decoration: underline; }
+        
+        .user-header { display: flex; justify-content: space-between; align-items: center; background: #ebf8ff; padding: 10px 15px; border-radius: 6px; margin-bottom: 20px; font-size: 14px; color: #2b6cb0; font-weight: bold; }
+        
+        form { display: flex; flex-direction: column; gap: 12px; }
+        label { font-weight: 600; font-size: 13px; color: #4a5568; }
+        input, select, textarea { padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; }
+        button { background: #3182ce; color: white; border: none; padding: 12px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #2b6cb0; }
+        button.logout { background: #e53e3e; padding: 6px 12px; font-size: 12px; }
+        button.approve { background: #38a169; padding: 6px 12px; font-size: 12px; }
+
+        .result-container { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .card { background: white; border: 1px solid #e2e8f0; border-left: 5px solid #3182ce; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .card.success { border-left-color: #38a169; background: #f0fff4; }
+        .card.error { border-left-color: #e53e3e; background: #fff5f5; color: #c53030; }
+        .card-title { font-weight: bold; color: #2d3748; font-size: 15px; margin-bottom: 5px; }
+        .card-body { font-size: 14px; color: #4a5568; word-break: break-all; }
+        .card-meta { font-size: 11px; color: #a0aec0; margin-top: 8px; font-family: monospace; }
+        .badge { display: inline-block; padding: 2px 6px; font-size: 11px; font-weight: bold; border-radius: 4px; background: #e2e8f0; color: #4a5568; }
+        .section-box { margin-top: 25px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+        .outband-box { background: #fffaf0; border: 1px solid #feebc8; padding: 12px; border-radius: 6px; margin-top: 10px; font-family: monospace; font-size: 12px; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Secure School Mark Entry</h1>
+    <div class="subtitle">Unified Text/File Encryption & Single-Field Asymmetric Decryption</div>
+
+    <div id="login-screen" class="auth-card">
+        <h3>System Login</h3>
+        <form id="login-form">
+            <label>Username:</label>
+            <input type="text" id="login-user" placeholder="Enter username (Dr_Smith or atan)" required>
+            <label>Password:</label>
+            <input type="password" id="login-pass" placeholder="Enter password" required>
+            <button type="submit">Secure Login</button>
+        </form>
+        <div class="toggle-link" onclick="toggleAuthMode('signup')">Create a new account</div>
+        <div id="login-alert" class="result-container"></div>
+    </div>
+
+    <div id="signup-screen" class="auth-card hidden">
+        <h3>Register New User & Generate RSA Keys</h3>
+        <form id="signup-form">
+            <label>Full Name:</label>
+            <input type="text" id="su-name" placeholder="Full Name" required>
+            <label>Username:</label>
+            <input type="text" id="su-user" placeholder="Username" required>
+            <label>Password:</label>
+            <input type="password" id="su-pass" placeholder="Password" required>
+            <label>Role:</label>
+            <select id="su-role" onchange="handleRoleChange()">
+                <option value="student">Student</option>
+                <option value="teacher">Teacher / Admin</option>
+            </select>
+            <div id="student-id-container">
+                <label>Student ID:</label>
+                <input type="text" id="su-studentid" placeholder="STU-88421">
+            </div>
+            <button type="submit">Register & Provision Keys</button>
+        </form>
+        <div class="toggle-link" onclick="toggleAuthMode('login')">Already have an account? Log in</div>
+        <div id="signup-alert" class="result-container"></div>
+    </div>
+
+    <div id="main-portal" class="portal-card hidden">
+        <div class="user-header">
+            <span id="user-welcome">Welcome</span>
+            <button class="logout" onclick="logout()">Sign Out</button>
+        </div>
+
+        <div id="teacher-section" class="hidden">
+            <h3 style="color: #2b6cb0;">Teacher Portal (Mark Entry)</h3>
+            <form id="teacher-form">
+                <label>Student ID:</label>
+                <input type="text" id="t-student-id" placeholder="STU-88421" required>
+                <label>Subject Code:</label>
+                <input type="text" id="t-subject" placeholder="CRYPTO-101" required>
+                <label>Grade & Details:</label>
+                <input type="text" id="t-grade" placeholder="A (95%)" required>
+                <button type="submit">Encrypt & Upload Secure Record</button>
+            </form>
+            <div id="teacher-output" class="result-container"></div>
+        </div>
+
+        <div id="student-section" class="hidden">
+            <h3 style="color: #2b6cb0;">Student Portal (Encrypted Results & Files)</h3>
+            <button onclick="fetchStudentResults()">Load My Encrypted Results & Files</button>
+            <div id="student-output" class="result-container"></div>
+        </div>
+
+        <!-- UNIVERSAL APPROVAL QUEUE (Unified Write Note + File Upload) -->
+        <div id="approval-section" class="section-box">
+            <h3 style="color: #2b6cb0;">Pending Access Requests (Universal Approval & Unified Encryption)</h3>
+            <p style="font-size: 13px; color: #64748b;">Write notes and attach files together. Both will undergo the exact same symmetric encryption process.</p>
+            <button onclick="fetchPendingRequests()">Check Pending Requests</button>
+            <div id="approval-output" class="result-container"></div>
+        </div>
+
+        <!-- UNIVERSAL ACCESS REQUEST (Any role to any role) -->
+        <div class="section-box">
+            <h3 style="color: #2b6cb0;">Request Data Access From Any User</h3>
+            <form id="request-form">
+                <label>Select Target User (Student or Teacher):</label>
+                <select id="request-owner"></select>
+                <label>Reason / Note:</label>
+                <input type="text" id="request-reason" placeholder="Document Audit / Collaboration" required>
+                <button type="submit">Submit Access Request</button>
+            </form>
+            <div id="request-output" class="result-container"></div>
+        </div>
+
+        <!-- SINGLE-FIELD DECRYPTION VAULT -->
+        <div class="section-box">
+            <h3 style="color: #2b6cb0;">Manual Out-of-Band Single-Field Decryption Vault</h3>
+            <p style="font-size: 13px; color: #64748b;">Paste the single combined asymmetric key package received out-of-band to automatically decrypt text notes and files.</p>
+            <form id="decrypt-manual-form">
+                <label>Single Asymmetric Key Package (Out-of-Band):</label>
+                <textarea id="m-keypackage" placeholder="Paste single wrapped key string..." rows="3" required></textarea>
+                <button type="submit">Unlock & Decrypt with Private Key</button>
+            </form>
+            <div id="decrypt-output" class="result-container"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let authToken = null;
+    let currentUser = null;
+
+    function toggleAuthMode(mode) {
+        if (mode === 'signup') {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('signup-screen').classList.remove('hidden');
+        } else {
+            document.getElementById('signup-screen').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+        }
+    }
+
+    function handleRoleChange() {
+        const role = document.getElementById('su-role').value;
+        document.getElementById('student-id-container').style.display = role === 'student' ? 'flex' : 'none';
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('login-user').value;
+        const password = document.getElementById('login-pass').value;
+        try {
+            const res = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            handleAuthSuccess(data);
+        } catch (err) {
+            document.getElementById('login-alert').innerHTML = `<div class="card error"><div class="card-title">Error</div><div class="card-body">${err.message}</div></div>`;
+        }
+    });
+
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('su-name').value;
+        const username = document.getElementById('su-user').value;
+        const password = document.getElementById('su-pass').value;
+        const role = document.getElementById('su-role').value;
+        const studentId = document.getElementById('su-studentid').value;
+        try {
+            const res = await fetch('/api/v1/auth/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, username, password, role, studentId })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            handleAuthSuccess(data);
+        } catch (err) {
+            document.getElementById('signup-alert').innerHTML = `<div class="card error"><div class="card-title">Error</div><div class="card-body">${err.message}</div></div>`;
+        }
+    });
+
+    function handleAuthSuccess(data) {
+        authToken = data.accessToken;
+        currentUser = data.user;
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('signup-screen').classList.add('hidden');
+        document.getElementById('main-portal').classList.remove('hidden');
+        document.getElementById('user-welcome').textContent = `${currentUser.name} (${currentUser.role.toUpperCase()})`;
+
+        if (currentUser.role === 'teacher') {
+            document.getElementById('teacher-section').classList.remove('hidden');
+            document.getElementById('student-section').classList.add('hidden');
+        } else {
+            document.getElementById('teacher-section').classList.add('hidden');
+            document.getElementById('student-section').classList.remove('hidden');
+            fetchStudentResults();
+        }
+        loadUserDirectory();
+        fetchPendingRequests();
+    }
+
+    async function loadUserDirectory() {
+        try {
+            const res = await fetch('/api/v1/users', { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const users = await res.json();
+            const select = document.getElementById('request-owner');
+            select.innerHTML = '';
+            users.filter(u => u.username !== currentUser.username).forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.username;
+                opt.textContent = `${u.name} (${u.role})`;
+                select.appendChild(opt);
+            });
+        } catch (err) { console.error(err); }
+    }
+
+    document.getElementById('teacher-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const studentId = document.getElementById('t-student-id').value;
+        const subjectCode = document.getElementById('t-subject').value;
+        const grade = document.getElementById('t-grade').value;
+
+        const formData = new FormData();
+        formData.append('studentId', studentId);
+        formData.append('subjectCode', subjectCode);
+        formData.append('grade', grade);
+
+        try {
+            const res = await fetch('/api/v1/teacher/marks', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            document.getElementById('teacher-output').innerHTML = `<div class="card success"><div class="card-title">Success</div><div class="card-body">${data.message}</div></div>`;
+            document.getElementById('teacher-form').reset();
+        } catch (err) {
+            document.getElementById('teacher-output').innerHTML = `<div class="card error"><div class="card-title">Error</div><div class="card-body">${err.message}</div></div>`;
+        }
+    });
+
+    async function fetchStudentResults() {
+        try {
+            const res = await fetch('/api/v1/student/results', { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+            const box = document.getElementById('student-output');
+            if (data.results.length === 0) {
+                box.innerHTML = `<div class="card"><div class="card-body">No encrypted records or files found.</div></div>`;
+                return;
+            }
+            let html = '';
+            data.results.forEach(r => {
+                let fileHtml = '';
+                if (r.document) {
+                    fileHtml = `<div style="margin-top: 8px;"><a href="${r.document.dataUri}" download="${r.document.filename}" style="color: #3182ce; font-weight: bold;">📥 Download Decrypted File: ${r.document.filename}</a></div>`;
+                }
+                html += `<div class="card"><div class="card-title">Subject: ${r.subjectCode} <span class="badge">${r.cipherUsed}</span></div><div class="card-body">${r.details}</div>${fileHtml}</div>`;
+            });
+            box.innerHTML = html;
+        } catch (err) { console.error(err); }
+    }
+
+    document.getElementById('request-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const ownerUsername = document.getElementById('request-owner').value;
+        const reason = document.getElementById('request-reason').value;
+        try {
+            const res = await fetch('/api/v1/access/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                body: JSON.stringify({ ownerUsername, reason })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            document.getElementById('request-output').innerHTML = `<div class="card success"><div class="card-title">Request Sent</div><div class="card-body">ID: ${data.requestId}</div></div>`;
+        } catch (err) {
+            document.getElementById('request-output').innerHTML = `<div class="card error"><div class="card-title">Error</div><div class="card-body">${err.message}</div></div>`;
+        }
+    });
+
+    async function fetchPendingRequests() {
+        try {
+            const res = await fetch('/api/v1/access/requests', { headers: { 'Authorization': `Bearer ${authToken}` } });
+            const data = await res.json();
+            const box = document.getElementById('approval-output');
+            if (data.requests.length === 0) {
+                box.innerHTML = `<div class="card"><div class="card-body">No pending requests.</div></div>`;
+                return;
+            }
+            let html = '';
+            data.requests.forEach(r => {
+                html += `
+                    <div class="card" id="req-card-${r.requestId}">
+                        <div class="card-title">From: ${r.requester}</div>
+                        <div class="card-body">Reason: ${r.reason}</div>
+                        <div style="margin-top: 10px;">
+                            <label style="font-size: 12px; color: #2b6cb0; font-weight: bold;">✍️ Write Note to Include in Encryption:</label>
+                            <input type="text" id="note-${r.requestId}" placeholder="Optional custom note or response..." style="width: 100%; box-sizing: border-box; margin-top: 4px;">
+                        </div>
+                        <div style="margin-top: 10px; padding: 10px; background: #ebf8ff; border-radius: 6px; border: 1px dashed #3182ce;">
+                            <label style="font-size: 12px; color: #2b6cb0; font-weight: bold;">📁 Attach File / Document (Unified Encryption Process):</label>
+                            <input type="file" id="file-${r.requestId}" style="margin-top: 5px; width: 100%; box-sizing: border-box; background: #fff; padding: 4px;">
+                        </div>
+                        <button class="approve" style="margin-top: 10px;" onclick="approveRequest('${r.requestId}')">Approve, Write & Encrypt Together</button>
+                    </div>
+                `;
+            });
+            box.innerHTML = html;
+        } catch (err) { console.error(err); }
+    }
+
+    async function approveRequest(requestId) {
+        const writtenNote = document.getElementById(`note-${requestId}`).value;
+        const fileInput = document.getElementById(`file-${requestId}`);
+        const formData = new FormData();
+        formData.append('requestId', requestId);
+        formData.append('writtenNote', writtenNote);
+        if (fileInput.files[0]) {
+            formData.append('approvalFile', fileInput.files[0]);
+        }
+
+        try {
+            const res = await fetch('/api/v1/access/approve', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${authToken}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            
+            const pkg = data.outOfBandPackage;
+            alert(data.message);
+            
+            document.getElementById(`req-card-${requestId}`).innerHTML = `
+                <div class="card success">
+                    <div class="card-title">Request Approved & Encrypted Together (Share ID: ${pkg.shareId})</div>
+                    <div class="card-body">Copy and send this single asymmetric key package out-of-band:</div>
+                    <div class="outband-box">
+                        <strong>Single Key Package:</strong> ${pkg.singleKeyPackage}
+                    </div>
+                </div>
+            `;
+        } catch (err) { alert(err.message); }
+    }
+
+    document.getElementById('decrypt-manual-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const manualKeyPackage = document.getElementById('m-keypackage').value;
+        const outputBox = document.getElementById('decrypt-output');
+
+        try {
+            const res = await fetch('/api/v1/share/decrypt-manual', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+                body: JSON.stringify({ manualKeyPackage })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+
+            let fileHtml = '';
+            if (data.document) {
+                fileHtml = `<div style="margin-top: 10px;"><a href="${data.document.dataUri}" download="${data.document.filename}" style="color: #3182ce; font-weight: bold;">📥 Download Decrypted File: ${data.document.filename}</a></div>`;
+            }
+
+            outputBox.innerHTML = `
+                <div class="card success">
+                    <div class="card-title">Successfully Unlocked via Single Key Package</div>
+                    <div class="card-body">${data.decryptedContent}</div>
+                    ${fileHtml}
+                </div>
+            `;
+        } catch (err) {
+            outputBox.innerHTML = `<div class="card error"><div class="card-title">Decryption Error</div><div class="card-body">${err.message}</div></div>`;
+        }
+    });
+
+    function logout() {
+        authToken = null;
+        currentUser = null;
+        document.getElementById('main-portal').classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('login-form').reset();
+    }
+</script>
+
+</body>
+</html>
